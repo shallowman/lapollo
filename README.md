@@ -5,7 +5,7 @@
 lapollo 是由 go 语言开发的用于实时更新 [Laravel](https://laravel.com/) 框架（一个使用 php 开发的 web 框架）.env 环境变量文件的 apollo 客户端。
 
 ## 如何使用
-- 使用 go build 编程成 Linux 下的可执行文件
+- 使用 go build 构建出 Linux 下的可执行文件
 ```shell script
 go build -o lapollo main.go
 ```
