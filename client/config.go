@@ -1,46 +1,85 @@
 package client
 
 import (
-	"fmt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"net"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
-var appEnv = os.Getenv("APOLLO_ENV")
+type App struct {
+	Path      string
+	AppId     string
+	Namespace []string
+}
 
 type ApolloClientConfig struct {
-	Cluster string `yaml:"cluster"`
-	Type    int    `yaml:"type"`
-	Host    string `yaml:"host"`
-	IP      string `yaml:"ip"`
-	Apps    []struct {
-		Path      string   `yaml:"path"`
-		AppId     string   `yaml:"appId"`
-		Namespace []string `yaml:"namespace"`
-	} `yaml:"apps"`
+	Cluster string
+	Type    int
+	Host    string
+	IP      string
+	Apps    []App
 }
 
 var Conf *ApolloClientConfig
 var ConfigFile string
 
+func getHostIp() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return ""
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String()
+		}
+	}
+	return ""
+}
+
 func init() {
-	currentDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(fmt.Errorf("获取文件位置错误 %s \n", err))
+	var cluster = os.Getenv("APOLLO_CLUSTER")
+	var apolloHost = os.Getenv("APOLLO_HOST")
+	var envPath = "/var/www/.env"
+	var appId = os.Getenv("APOLLO_APP_ID")
+	var namespace = os.Getenv("APOLLO_NAMESPACE")
+
+	Conf.Cluster = cluster
+	Conf.Type = 1
+	Conf.Host = apolloHost
+
+	ip := getHostIp()
+	if ip == "" {
+		ip = "127.0.0.1"
 	}
 
-	ConfigFile = strings.TrimRight(currentDir, "/") + "/app.yaml"
-	contents, err := ioutil.ReadFile(ConfigFile)
+	Conf.IP = ip
 
-	if err != nil {
-		panic(fmt.Errorf("读取 app.yaml 文件内容错误 : %s \n", err))
-	}
-
-	err = yaml.Unmarshal(contents, &Conf)
-	if err != nil {
-		panic(fmt.Errorf("yaml 配置文件解析错误 : %s \n", err))
-	}
+	Conf.Apps = []App{{
+		envPath,
+		appId,
+		[]string{namespace},
+	}}
 }
