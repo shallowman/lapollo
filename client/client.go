@@ -83,6 +83,11 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，GoHttpClient 错误" + err.Error())
 	}
 
+	if response == nil {
+		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，服务的返回为空")
+		return false, 0
+	}
+
 	defer response.Body.Close()
 
 	var body []struct {
@@ -114,6 +119,7 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 
 	if err != nil {
 		Logger.Fatal("通过不带缓存的Http接口从Apollo读取配置时，GoHttpClient 错误" + err.Error())
+		return "", map[string]string{}
 	}
 
 	var body struct {

@@ -20,7 +20,6 @@ type ApolloClientConfig struct {
 }
 
 var Conf *ApolloClientConfig
-var ConfigFile string
 
 func getHostIp() string {
 	ifaces, err := net.Interfaces()
