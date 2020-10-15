@@ -3,6 +3,7 @@ package client
 import (
 	"net"
 	"os"
+	"strings"
 )
 
 type App struct {
@@ -61,13 +62,21 @@ func getHostIp() string {
 func init() {
 	var cluster = os.Getenv("APOLLO_CLUSTER")
 	var apolloHost = os.Getenv("APOLLO_HOST")
-	var envPath = "/var/www/.env"
+	var envPath = os.Getenv("APOLLO_HOST")
 	var appId = os.Getenv("APOLLO_APP_ID")
 	var namespace = os.Getenv("APOLLO_NAMESPACE")
+
 	ip := getHostIp()
+
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
+
+	if envPath == "" {
+		envPath = "/var/www/.env"
+	}
+
+	var ns = strings.Split(namespace, ",")
 
 	Conf = &ApolloClientConfig{
 		Cluster: cluster,
@@ -77,7 +86,7 @@ func init() {
 		Apps: []App{{
 			envPath,
 			appId,
-			[]string{namespace},
+			ns,
 		}},
 	}
 }
