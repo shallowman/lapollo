@@ -64,21 +64,20 @@ func init() {
 	var envPath = "/var/www/.env"
 	var appId = os.Getenv("APOLLO_APP_ID")
 	var namespace = os.Getenv("APOLLO_NAMESPACE")
-
-	Conf.Cluster = cluster
-	Conf.Type = 1
-	Conf.Host = apolloHost
-
 	ip := getHostIp()
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
 
-	Conf.IP = ip
-
-	Conf.Apps = []App{{
-		envPath,
-		appId,
-		[]string{namespace},
-	}}
+	Conf = &ApolloClientConfig{
+		Cluster: cluster,
+		Type:    1,
+		Host:    apolloHost,
+		IP:      ip,
+		Apps: []App{{
+			envPath,
+			appId,
+			[]string{namespace},
+		}},
+	}
 }
