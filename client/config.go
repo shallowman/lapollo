@@ -62,7 +62,7 @@ func getHostIp() string {
 func init() {
 	var cluster = os.Getenv("APOLLO_CLUSTER")
 	var apolloHost = os.Getenv("APOLLO_HOST")
-	var envPath = os.Getenv("APOLLO_HOST")
+	var envPath = os.Getenv("APOLLO_ENV_PATH")
 	var appId = os.Getenv("APOLLO_APP_ID")
 	var namespace = os.Getenv("APOLLO_NAMESPACE")
 
