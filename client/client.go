@@ -144,10 +144,7 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 
 func UpdateAppEnvironment(path string, namespaces []string) {
 	var contents []byte
-
 	for _, namespace := range namespaces {
-		fmt.Println(namespace)
-		fmt.Println(path + "/apollo.config." + namespace)
 		content, _ := ioutil.ReadFile(path + "/apollo.config." + namespace)
 		if len(content) == 0 {
 			continue
@@ -172,7 +169,6 @@ func updateEnvWithNamespace(path string, namespace string, configs map[string]st
 	}
 	// 写入新 env 前会清空之前的 env
 	err := ioutil.WriteFile(path+"/apollo.config."+namespace, []byte(envContents), 0777)
-	fmt.Println(envContents)
 	if err != nil {
 		Logger.Fatal(err)
 	}
