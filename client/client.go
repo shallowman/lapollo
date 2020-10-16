@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -141,14 +142,37 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 	return "", map[string]string{}
 }
 
-func updateLaravelEnv(env string, configs map[string]string) {
+func UpdateAppEnvironment(path string, namespaces []string) {
+	var contents []byte
+
+	for _, namespace := range namespaces {
+		fmt.Println(namespace)
+		fmt.Println(path + "/apollo.config." + namespace)
+		content, _ := ioutil.ReadFile(path + "/apollo.config." + namespace)
+		if len(content) == 0 {
+			continue
+		}
+
+		contents = append(contents, content...)
+	}
+
+	// 写入新 env 前会清空之前的 env
+	err := ioutil.WriteFile(path+"/.env", contents, 0777)
+
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+}
+
+func updateEnvWithNamespace(path string, namespace string, configs map[string]string) {
 	envContents := ""
 	for k, v := range configs {
 		envContents += k + "=" + v + "\n"
 	}
 	// 写入新 env 前会清空之前的 env
-	err := ioutil.WriteFile(env, []byte(envContents), 0777)
-
+	err := ioutil.WriteFile(path+"/apollo.config."+namespace, []byte(envContents), 0777)
+	fmt.Println(envContents)
 	if err != nil {
 		Logger.Fatal(err)
 	}
@@ -163,7 +187,7 @@ func PollingUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context
 			return
 		default:
 			configs := getConfigWithCache(config)
-			updateLaravelEnv(config.Path, configs)
+			updateEnvWithNamespace(filepath.Dir(config.Path), config.Namespace, configs)
 			time.Sleep(30 * time.Second)
 		}
 	}
@@ -189,7 +213,7 @@ func LongPollingHotUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.
 				var configs map[string]string
 				config.ReleaseKey = releaseKey
 				releaseKey, configs = getConfigWithoutCache(config)
-				updateLaravelEnv(config.Path, configs)
+				updateEnvWithNamespace(filepath.Dir(config.Path), config.Namespace, configs)
 				notificationId = id
 			}
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/lapollo/client"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 )
@@ -60,6 +61,8 @@ func updateAppsConfig(ctx context.Context) {
 
 			}(app.Path, app.AppId, namespace, ctx)
 		}
+
+		client.UpdateAppEnvironment(filepath.Dir(app.Path), app.Namespace)
 	}
 }
 
