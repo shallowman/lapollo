@@ -85,7 +85,7 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 	}
 
 	if response == nil {
-		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，服务的返回为空")
+		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，apollo server 接口返回为空")
 		return false, 0
 	}
 
@@ -140,26 +140,6 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 	}
 	Logger.Fatalf("通过不带缓存的Http接口从Apollo读取配置时，Http 接口返回码非 200 %v\n", response.StatusCode)
 	return "", map[string]string{}
-}
-
-func UpdateAppEnvironment(path string, namespaces []string) {
-	var contents []byte
-	for _, namespace := range namespaces {
-		content, _ := ioutil.ReadFile(path + "/apollo.config." + namespace)
-		if len(content) == 0 {
-			continue
-		}
-
-		contents = append(contents, content...)
-	}
-
-	// 写入新 env 前会清空之前的 env
-	err := ioutil.WriteFile(path+"/.env", contents, 0777)
-
-	if err != nil {
-		Logger.Fatal(err)
-	}
-
 }
 
 func updateEnvWithNamespace(path string, namespace string, configs map[string]string) {

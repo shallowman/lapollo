@@ -2,8 +2,6 @@ package client
 
 import (
 	"net"
-	"os"
-	"strings"
 )
 
 type App struct {
@@ -60,33 +58,45 @@ func getHostIp() string {
 }
 
 func init() {
-	var cluster = os.Getenv("APOLLO_CLUSTER")
-	var apolloHost = os.Getenv("APOLLO_HOST")
-	var envPath = os.Getenv("APOLLO_ENV_PATH")
-	var appId = os.Getenv("APOLLO_APP_ID")
-	var namespace = os.Getenv("APOLLO_NAMESPACE")
-
-	ip := getHostIp()
-
-	if ip == "" {
-		ip = "127.0.0.1"
-	}
-
-	if envPath == "" {
-		envPath = "/var/www/.env"
-	}
-
-	var ns = strings.Split(namespace, ",")
+	//var cluster = os.Getenv("APOLLO_CLUSTER")
+	//var apolloHost = os.Getenv("APOLLO_HOST")
+	//var envPath = os.Getenv("APOLLO_ENV_PATH")
+	//var appId = os.Getenv("APOLLO_APP_ID")
+	//var namespace = os.Getenv("APOLLO_NAMESPACE")
+	//
+	//ip := getHostIp()
+	//
+	//if ip == "" {
+	//	ip = "127.0.0.1"
+	//}
+	//
+	//if envPath == "" {
+	//	envPath = "/var/www/.env"
+	//}
+	//
+	//var ns = strings.Split(namespace, ",")
+	//
+	//Conf = &ApolloClientConfig{
+	//	Cluster: cluster,
+	//	Type:    1,
+	//	Host:    apolloHost,
+	//	IP:      ip,
+	//	Apps: []App{{
+	//		envPath,
+	//		appId,
+	//		ns,
+	//	}},
+	//}
 
 	Conf = &ApolloClientConfig{
-		Cluster: cluster,
+		Cluster: "LOCAL",
 		Type:    1,
-		Host:    apolloHost,
-		IP:      ip,
+		Host:    "http://192.168.150.90:31771",
+		IP:      "127.0.0.1",
 		Apps: []App{{
-			envPath,
-			appId,
-			ns,
+			"/Users/feron/code-repository/lapollo/.env",
+			"admin-center",
+			[]string{"application", "zzmed-pub"},
 		}},
 	}
 }

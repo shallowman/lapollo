@@ -22,7 +22,7 @@ func newLogger() *log.Logger {
 
 	if err != nil {
 		return &log.Logger{
-			Out:   file,
+			Out:   os.Stdout,
 			Hooks: nil,
 			Formatter: &log.TextFormatter{
 				DisableColors: true,
@@ -35,7 +35,7 @@ func newLogger() *log.Logger {
 	}
 
 	return &log.Logger{
-		Out:   os.Stdout,
+		Out:   file,
 		Hooks: nil,
 		Formatter: &log.TextFormatter{
 			DisableColors: true,
@@ -45,6 +45,7 @@ func newLogger() *log.Logger {
 		Level:        log.InfoLevel,
 		ExitFunc:     nil,
 	}
+
 }
 
 func getLogName(path string, name string, date string, ext string) string {
