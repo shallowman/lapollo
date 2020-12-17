@@ -7,6 +7,7 @@ import (
 	"github.com/lapollo/client"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sync"
@@ -45,7 +46,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 	for _, app := range client.Conf.Apps {
 		go listenAppNamespaceConfig(watcher, filepath.Dir(app.Path), app.Namespace)
 		for _, namespace := range app.Namespace {
-			err1 := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0777)
+			err1 := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0644)
 			if err1 != nil {
 				panic(fmt.Errorf("写入文件失败 %v", err1))
 			}
@@ -57,7 +58,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 			go func(path, appId, namespace string, ctx context.Context) {
 				switch client.Conf.Type {
 				case POLLING:
-					client.PollingUpdate(client.HttpReqConfig{
+					client.UpdateViaHttpPolling(client.HttpReqConfig{
 						Path:      path,
 						AppId:     appId,
 						Namespace: namespace,
@@ -65,7 +66,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 
 					break
 				case HOT:
-					client.LongPollingHotUpdate(client.HttpReqConfig{
+					client.UpdateEnvViaHttpLongPolling(client.HttpReqConfig{
 						Path:          path,
 						AppId:         appId,
 						Namespace:     namespace,
@@ -109,11 +110,13 @@ func updateAppEnvironment(path string, namespaces []string) {
 	}
 
 	// 写入新 env 前会清空之前的 env
-	err := ioutil.WriteFile(path+"/.env", contents, 0777)
+	err := ioutil.WriteFile(path+"/.env", contents, 0644)
 
 	if err != nil {
 		client.Logger.Fatal(err)
 	}
+
+	reloadSupervisor()
 }
 
 func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace []string) {
@@ -123,7 +126,6 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 			if !ok {
 				return
 			}
-
 			if (event.Op&fsnotify.Chmod == fsnotify.Chmod) || (event.Op&fsnotify.Write == fsnotify.Write) {
 				client.Logger.Info("配置更新", event)
 				updateAppEnvironment(path, namespace)
@@ -134,5 +136,18 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 				return
 			}
 		}
+	}
+}
+
+func reloadSupervisor() {
+	if _, err := exec.LookPath("supervisor"); err != nil {
+		client.Logger.Info("当前环境中不存在 supervisor")
+		return
+	}
+
+	c := exec.Command("supervisorctl", "reload", "all")
+
+	if err := c.Run(); err != nil {
+		client.Logger.Fatal("supervisor 重新加载失败")
 	}
 }

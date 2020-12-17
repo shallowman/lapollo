@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	path       = "logs/"
+	path       = "/var/www/storage/logs/"
 	name       = "lapollo-client"
 	ext        = "log"
 	timeFormat = "2006-01-02"
@@ -17,7 +17,13 @@ var (
 var Logger = newLogger()
 
 func newLogger() *log.Logger {
-	logName := getLogName(path, name, time.Now().Format(timeFormat), ext)
+	logPath := os.Getenv("APOLLO_CLIENT_LOG_PATH")
+
+	if logPath == "" {
+		logPath = path
+	}
+
+	logName := generateLogFilename(logPath, name, timeFormat, ext)
 	file, err := os.OpenFile(logName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 
 	if err != nil {
@@ -48,6 +54,6 @@ func newLogger() *log.Logger {
 
 }
 
-func getLogName(path string, name string, date string, ext string) string {
-	return fmt.Sprintf("%s%s-%s.%s", path, name, date, ext)
+func generateLogFilename(path string, name string, format string, ext string) string {
+	return fmt.Sprintf("%s%s-%s.%s", path, name, time.Now().Format(format), ext)
 }

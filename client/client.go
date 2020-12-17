@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -22,7 +21,7 @@ type HttpReqConfig struct {
 	Notifications string
 }
 
-func getHttpCacheUri(host string, appId string, cluster string, namespace string) string {
+func generateViaCacheHttpReqUri(host string, appId string, cluster string, namespace string) string {
 	return fmt.Sprintf("%s/configfiles/json/%s/%s/%s", host, appId, cluster, namespace)
 }
 
@@ -35,17 +34,17 @@ func buildHttpQuery(quires map[string]string) string {
 	return query.Encode()
 }
 
-func getNotificationsUri(host string, query string) string {
+func generateViaNotificationsHttpReqUri(host string, query string) string {
 	return fmt.Sprintf("%s/notifications/v2?%s", host, query)
 }
 
-func getHttpWithoutCacheUri(host string, appId string, cluster string, namespace string, releaseKey string) string {
+func generateNotViaCacheHttpReqUri(host string, appId string, cluster string, namespace string, releaseKey string) string {
 	return fmt.Sprintf("%s/configs/%s/%s/%s?releaseKey=%s", host, appId, cluster, namespace, releaseKey)
 }
 
 //通过带缓存的接口从 Apollo Server 读取配置
 func getConfigWithCache(config HttpReqConfig) (responseBody map[string]string) {
-	requestUri := getHttpCacheUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace)
+	requestUri := generateViaCacheHttpReqUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace)
 
 	if Conf.IP != "" {
 		requestUri += "?ip=" + Conf.IP
@@ -54,18 +53,22 @@ func getConfigWithCache(config HttpReqConfig) (responseBody map[string]string) {
 	response, err := http.Get(requestUri)
 
 	if err != nil {
-		Logger.Fatal("通过带缓存的Http接口从Apollo读取配置时，GoHttpClient 错误" + err.Error())
+		Logger.Fatal("[带缓存接口获取配置] apollo client 发送 HTTP 请求错误: " + err.Error())
 	}
 
-	if response.StatusCode == 200 {
-		err = json.NewDecoder(response.Body).Decode(&responseBody)
-		if err != nil {
-			Logger.Fatal("通过带缓存的Http接口从Apollo读取配置时， JSON 反序列化Http接口返回的消息体发生错误" + err.Error())
-		}
+	if response == nil {
+		Logger.Error("[带缓存接口获取配置] apollo-server http 应答为空")
 		return
 	}
 
-	log.Fatalf("通过带缓存的Http接口从Apollo读取配置时，客户端返回码非 200 %v %v\n", response.StatusCode, response.Body)
+	if response.StatusCode == 200 {
+		if err := json.NewDecoder(response.Body).Decode(&responseBody); err != nil {
+			Logger.Fatalf("[带缓存接口获取配置] 反序列化 JSON 串错误: %v %v", err.Error(), response.Body)
+		}
+	} else {
+		Logger.Errorf("[带缓存接口获取配置]apollo-server HTTP 响应码非 200 %v %v\n", response.StatusCode, response.Body)
+	}
+
 	return
 }
 
@@ -77,15 +80,15 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 		"notifications": config.Notifications,
 	}
 
-	notificationsUri := getNotificationsUri(Conf.Host, buildHttpQuery(query))
+	notificationsUri := generateViaNotificationsHttpReqUri(Conf.Host, buildHttpQuery(query))
 	response, err := http.Get(notificationsUri)
 
 	if err != nil {
-		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，GoHttpClient 错误" + err.Error())
+		Logger.Fatal("[长轮询接口获取配置] GoHttpClient 错误" + err.Error())
 	}
 
 	if response == nil {
-		Logger.Fatal("通过应用感知配置更新接口从Apollo读取配置时，apollo server 接口返回为空")
+		Logger.Fatal("[长轮询接口获取配置] apollo server 接口返回为空")
 		return false, 0
 	}
 
@@ -99,10 +102,8 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 		} `json:"messages"`
 	}
 	if response.StatusCode == 200 {
-		err = json.NewDecoder(response.Body).Decode(&body)
-		Logger.Info("http 返回", body)
-		if err != nil {
-			Logger.Error("通过应用感知配置更新接口从Apollo读取配置时，JSON 反序列化Http接口返回的消息体发生错误" + err.Error())
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			Logger.Error("[长轮询接口获取配置] JSON 反序列化返回的消息体发生错误: %v %v", err.Error(), response.Body)
 		}
 		return true, body[0].NotificationId
 	}
@@ -111,7 +112,7 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 
 //通过不带缓存的Http接口从Apollo读取配置
 func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
-	requestUri := getHttpWithoutCacheUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace, config.ReleaseKey)
+	requestUri := generateNotViaCacheHttpReqUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace, config.ReleaseKey)
 	if Conf.IP != "" {
 		requestUri += "&ip=" + Conf.IP
 	}
@@ -119,7 +120,7 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 	response, err := http.Get(requestUri)
 
 	if err != nil {
-		Logger.Fatal("通过不带缓存的Http接口从Apollo读取配置时，GoHttpClient 错误" + err.Error())
+		Logger.Fatal("[不带缓存接口获取配置] GoHttpClient 错误" + err.Error())
 		return "", map[string]string{}
 	}
 
@@ -132,17 +133,16 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 	}
 
 	if response.StatusCode == 200 {
-		err = json.NewDecoder(response.Body).Decode(&body)
-		if err != nil {
-			Logger.Fatal("通过不带缓存的Http接口从Apollo读取配置时，JSON 反序列化Http接口返回的消息体发生错误" + err.Error())
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			Logger.Fatal("[不带缓存接口获取配置] JSON 反序列化Http接口返回的消息体发生错误： %v %v", err.Error(), response.Body)
 		}
 		return body.ReleaseKey, body.Configurations
 	}
-	Logger.Fatalf("通过不带缓存的Http接口从Apollo读取配置时，Http 接口返回码非 200 %v\n", response.StatusCode)
+	Logger.Fatalf("[不带缓存接口获取配置] Http 接口返回码非 200 %v %v\n", response.StatusCode, response.Body)
 	return "", map[string]string{}
 }
 
-func updateEnvWithNamespace(path string, namespace string, configs map[string]string) {
+func updateEnvUnderNamespace(path string, namespace string, configs map[string]string) {
 	envContents := ""
 	for k, v := range configs {
 		envContents += k + "=" + v + "\n"
@@ -155,7 +155,7 @@ func updateEnvWithNamespace(path string, namespace string, configs map[string]st
 }
 
 // 轮询更新
-func PollingUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
+func UpdateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	for {
 		select {
@@ -163,14 +163,14 @@ func PollingUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context
 			return
 		default:
 			configs := getConfigWithCache(config)
-			updateEnvWithNamespace(filepath.Dir(config.Path), config.Namespace, configs)
+			updateEnvUnderNamespace(filepath.Dir(config.Path), config.Namespace, configs)
 			time.Sleep(30 * time.Second)
 		}
 	}
 }
 
 // 长轮询更新，热更新
-func LongPollingHotUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
+func UpdateEnvViaHttpLongPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	var notificationId int64
 	var releaseKey string
@@ -189,7 +189,7 @@ func LongPollingHotUpdate(config HttpReqConfig, wg *sync.WaitGroup, ctx context.
 				var configs map[string]string
 				config.ReleaseKey = releaseKey
 				releaseKey, configs = getConfigWithoutCache(config)
-				updateEnvWithNamespace(filepath.Dir(config.Path), config.Namespace, configs)
+				updateEnvUnderNamespace(filepath.Dir(config.Path), config.Namespace, configs)
 				notificationId = id
 			}
 		}

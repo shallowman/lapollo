@@ -22,19 +22,21 @@ type ApolloClientConfig struct {
 
 var Conf *ApolloClientConfig
 
-func getHostIp() string {
-	ifaces, err := net.Interfaces()
+func getClientIp() string {
+	netInterfaces, err := net.Interfaces()
 	if err != nil {
 		return ""
 	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue // interface down
+	for _, netInterface := range netInterfaces {
+		// interface down
+		if netInterface.Flags&net.FlagUp == 0 {
+			continue
 		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
+		// loopback interface
+		if netInterface.Flags&net.FlagLoopback != 0 {
+			continue
 		}
-		addrs, err := iface.Addrs()
+		addrs, err := netInterface.Addrs()
 		if err != nil {
 			return ""
 		}
@@ -50,8 +52,9 @@ func getHostIp() string {
 				continue
 			}
 			ip = ip.To4()
+			// not an ipv4 address
 			if ip == nil {
-				continue // not an ipv4 address
+				continue
 			}
 			return ip.String()
 		}
@@ -60,24 +63,20 @@ func getHostIp() string {
 }
 
 func init() {
-	var cluster = os.Getenv("APOLLO_CLUSTER")
-	var apolloHost = os.Getenv("APOLLO_HOST")
-	var envPath = os.Getenv("APOLLO_ENV_PATH")
-	var appId = os.Getenv("APOLLO_APP_ID")
-	var namespace = os.Getenv("APOLLO_NAMESPACE")
-
-	ip := getHostIp()
-
+	// Get config from OS environment
+	cluster := os.Getenv("APOLLO_CLUSTER")
+	apolloHost := os.Getenv("APOLLO_HOST")
+	envPath := os.Getenv("APOLLO_ENV_PATH")
+	appId := os.Getenv("APOLLO_APP_ID")
+	namespace := os.Getenv("APOLLO_NAMESPACE")
+	ip := getClientIp()
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
-
 	if envPath == "" {
 		envPath = "/var/www/.env"
 	}
-
-	var ns = strings.Split(namespace, ",")
-
+	namespaces := strings.Split(namespace, ",")
 	Conf = &ApolloClientConfig{
 		Cluster: cluster,
 		Type:    1,
@@ -86,7 +85,7 @@ func init() {
 		Apps: []App{{
 			envPath,
 			appId,
-			ns,
+			namespaces,
 		}},
 	}
 }
