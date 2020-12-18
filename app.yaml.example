@@ -4,6 +4,7 @@ cluster: clusterName
 type: 0
 host: http://127.0.0.1:8080
 ip: 127.0.0.1
+logPath: /path-to-client-log
 apps:
   - path: /path-to-project/.env
     appId: app-id

@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	path       = "/var/www/storage/logs/"
+	path       = "/var/logs/lapollo"
 	name       = "lapollo-client"
 	ext        = "log"
 	timeFormat = "2006-01-02"
@@ -17,7 +17,7 @@ var (
 var Logger = newLogger()
 
 func newLogger() *log.Logger {
-	logPath := os.Getenv("APOLLO_CLIENT_LOG_PATH")
+	logPath := Conf.LogPath
 
 	if logPath == "" {
 		logPath = path
