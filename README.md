@@ -8,7 +8,7 @@ lapollo 是由 go 语言开发的用于实时更新 [Laravel](https://laravel.co
 ### 1. 使用 Go 编译出当前操作系统下的可执行文件
 - 使用 go build 构建出 Linux 下的可执行文件
 ```shell script
-go build -o lapollo main.go
+go build -o lapollo
 ```
 ### 2. 配置文件初始化
 #### 2.1 通过系统变量来设置客户端的配置
