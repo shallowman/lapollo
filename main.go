@@ -145,9 +145,11 @@ func reloadSupervisor() {
 		return
 	}
 
-	c := exec.Command("supervisorctl", "reload", "all")
+	c := exec.Command("supervisorctl", "reload")
 
 	if err := c.Run(); err != nil {
 		client.Logger.Fatal("supervisor 重新加载失败")
+	} else {
+		client.Logger.Fatal("supervisor 重新启动成功")
 	}
 }
