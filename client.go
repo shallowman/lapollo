@@ -44,29 +44,29 @@ func generateNotViaCacheHttpReqUri(host string, appId string, cluster string, na
 
 //通过带缓存的接口从 Apollo Server 读取配置
 func getConfigWithCache(config HttpReqConfig) (responseBody map[string]string) {
-	requestUri := generateViaCacheHttpReqUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace)
+	requestUri := generateViaCacheHttpReqUri(conf.Host, config.AppId, conf.Cluster, config.Namespace)
 
-	if Conf.IP != "" {
-		requestUri += "?ip=" + Conf.IP
+	if conf.IP != "" {
+		requestUri += "?ip=" + conf.IP
 	}
 
 	response, err := http.Get(requestUri)
 
 	if err != nil {
-		Logger.Fatal("[带缓存接口获取配置] apollo client 发送 HTTP 请求错误: " + err.Error())
+		logger.Fatal("[带缓存接口获取配置] apollo client 发送 HTTP 请求错误: " + err.Error())
 	}
 
 	if response == nil {
-		Logger.Error("[带缓存接口获取配置] apollo-server http 应答为空")
+		logger.Error("[带缓存接口获取配置] apollo-server http 应答为空")
 		return
 	}
 
 	if response.StatusCode == 200 {
 		if err := json.NewDecoder(response.Body).Decode(&responseBody); err != nil {
-			Logger.Fatalf("[带缓存接口获取配置] 反序列化 JSON 串错误: %v %v", err.Error(), response.Body)
+			logger.Fatalf("[带缓存接口获取配置] 反序列化 JSON 串错误: %v %v", err.Error(), response.Body)
 		}
 	} else {
-		Logger.Errorf("[带缓存接口获取配置]apollo-server HTTP 响应码非 200 %v %v\n", response.StatusCode, response.Body)
+		logger.Errorf("[带缓存接口获取配置]apollo-server HTTP 响应码非 200 %v %v\n", response.StatusCode, response.Body)
 	}
 
 	return
@@ -76,19 +76,19 @@ func getConfigWithCache(config HttpReqConfig) (responseBody map[string]string) {
 func getNotifications(config HttpReqConfig) (bool, int64) {
 	query := map[string]string{
 		"appId":         config.AppId,
-		"cluster":       Conf.Cluster,
+		"cluster":       conf.Cluster,
 		"notifications": config.Notifications,
 	}
 
-	notificationsUri := generateViaNotificationsHttpReqUri(Conf.Host, buildHttpQuery(query))
+	notificationsUri := generateViaNotificationsHttpReqUri(conf.Host, buildHttpQuery(query))
 	response, err := http.Get(notificationsUri)
 
 	if err != nil {
-		Logger.Fatal("[长轮询接口获取配置] GoHttpClient 错误" + err.Error())
+		logger.Fatal("[长轮询接口获取配置] GoHttpClient 错误" + err.Error())
 	}
 
 	if response == nil {
-		Logger.Fatal("[长轮询接口获取配置] apollo server 接口返回为空")
+		logger.Fatal("[长轮询接口获取配置] apollo server 接口返回为空")
 		return false, 0
 	}
 
@@ -103,7 +103,7 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 	}
 	if response.StatusCode == 200 {
 		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-			Logger.Error("[长轮询接口获取配置] JSON 反序列化返回的消息体发生错误: %v %v", err.Error(), response.Body)
+			logger.Error("[长轮询接口获取配置] JSON 反序列化返回的消息体发生错误: %v %v", err.Error(), response.Body)
 		}
 		return true, body[0].NotificationId
 	}
@@ -112,15 +112,15 @@ func getNotifications(config HttpReqConfig) (bool, int64) {
 
 //通过不带缓存的Http接口从Apollo读取配置
 func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
-	requestUri := generateNotViaCacheHttpReqUri(Conf.Host, config.AppId, Conf.Cluster, config.Namespace, config.ReleaseKey)
-	if Conf.IP != "" {
-		requestUri += "&ip=" + Conf.IP
+	requestUri := generateNotViaCacheHttpReqUri(conf.Host, config.AppId, conf.Cluster, config.Namespace, config.ReleaseKey)
+	if conf.IP != "" {
+		requestUri += "&ip=" + conf.IP
 	}
 
 	response, err := http.Get(requestUri)
 
 	if err != nil {
-		Logger.Fatal("[不带缓存接口获取配置] GoHttpClient 错误" + err.Error())
+		logger.Fatal("[不带缓存接口获取配置] GoHttpClient 错误" + err.Error())
 		return "", map[string]string{}
 	}
 
@@ -134,11 +134,11 @@ func getConfigWithoutCache(config HttpReqConfig) (string, map[string]string) {
 
 	if response.StatusCode == 200 {
 		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-			Logger.Fatal("[不带缓存接口获取配置] JSON 反序列化Http接口返回的消息体发生错误： %v %v", err.Error(), response.Body)
+			logger.Fatal("[不带缓存接口获取配置] JSON 反序列化Http接口返回的消息体发生错误： %v %v", err.Error(), response.Body)
 		}
 		return body.ReleaseKey, body.Configurations
 	}
-	Logger.Fatalf("[不带缓存接口获取配置] Http 接口返回码非 200 %v %v\n", response.StatusCode, response.Body)
+	logger.Fatalf("[不带缓存接口获取配置] Http 接口返回码非 200 %v %v\n", response.StatusCode, response.Body)
 	return "", map[string]string{}
 }
 
@@ -150,12 +150,12 @@ func updateEnvUnderNamespace(path string, namespace string, configs map[string]s
 	// 写入新 env 前会清空之前的 env
 	err := ioutil.WriteFile(path+"/apollo.config."+namespace, []byte(envContents), 0777)
 	if err != nil {
-		Logger.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 
 // 轮询更新
-func UpdateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
+func updateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	for {
 		select {
@@ -170,7 +170,7 @@ func UpdateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.
 }
 
 // 长轮询更新，热更新
-func UpdateEnvViaHttpLongPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
+func updateEnvViaHttpLongPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	var notificationId int64
 	var releaseKey string

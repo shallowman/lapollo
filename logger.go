@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -14,13 +15,15 @@ var (
 	timeFormat = "2006-01-02"
 )
 
-var Logger = newLogger()
-
 func newLogger() *log.Logger {
-	logPath := Conf.LogPath
+	logPath := conf.LogPath
 
 	if logPath == "" {
 		logPath = path
+	}
+
+	if !strings.HasSuffix(logPath, "/") {
+		logPath += "/"
 	}
 
 	logName := generateLogFilename(logPath, name, timeFormat, ext)

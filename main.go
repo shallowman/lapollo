@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -17,6 +18,8 @@ var (
 	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
+	logger *log.Logger
+	conf   *config
 )
 
 const (
@@ -24,12 +27,25 @@ const (
 	HOT
 )
 
+func init() {
+	conf = getConfigViaOsEnvironment()
+	if conf == nil {
+		conf = getConfigViaYaml()
+	}
+
+	if conf == nil {
+		panic("获取不到 Apollo-Client 的配置文件 \n")
+	}
+
+	logger = newLogger()
+}
+
 func main() {
-	Logger.Info("apollo 客户端启动")
+	logger.Info("apollo 客户端启动")
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
-		Logger.Error("添加文件 watcher 失败", err)
+		logger.Error("添加文件 watcher 失败", err)
 	}
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -38,11 +54,11 @@ func main() {
 
 	wg.Wait()
 	defer watcher.Close()
-	Logger.Info("apollo 客户端退出")
+	logger.Info("apollo 客户端退出")
 }
 
 func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
-	for _, app := range Conf.Apps {
+	for _, app := range conf.Apps {
 		go listenAppNamespaceConfig(watcher, filepath.Dir(app.Path), app.Namespace)
 		for _, namespace := range app.Namespace {
 			err1 := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0644)
@@ -51,13 +67,13 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 			}
 			err2 := watcher.Add(filepath.Dir(app.Path) + "/apollo.config." + namespace)
 			if err2 != nil {
-				Logger.Fatal(err2)
+				logger.Fatal(err2)
 			}
 			wg.Add(1)
 			go func(path, appId, namespace string, ctx context.Context) {
-				switch Conf.Type {
+				switch conf.Type {
 				case POLLING:
-					UpdateViaHttpPolling(HttpReqConfig{
+					updateViaHttpPolling(HttpReqConfig{
 						Path:      path,
 						AppId:     appId,
 						Namespace: namespace,
@@ -65,7 +81,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 
 					break
 				case HOT:
-					UpdateEnvViaHttpLongPolling(HttpReqConfig{
+					updateEnvViaHttpLongPolling(HttpReqConfig{
 						Path:          path,
 						AppId:         appId,
 						Namespace:     namespace,
@@ -74,8 +90,8 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 					}, &wg, ctx)
 					break
 				default:
-					Logger.Error("配置文件 type 类型错误")
-					panic(fmt.Errorf("配置文件 type 类型错误 %v", Conf.Type))
+					logger.Error("配置文件 type 类型错误")
+					panic(fmt.Errorf("配置文件 type 类型错误 %v", conf.Type))
 				}
 				return
 
@@ -90,7 +106,7 @@ func handleSignal() {
 	for {
 		switch <-signals {
 		case syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT:
-			Logger.Error("apollo 客户端正在停止")
+			logger.Info("apollo 客户端正在停止")
 			cancel()
 		}
 	}
@@ -112,7 +128,7 @@ func updateAppEnvironment(path string, namespaces []string) {
 	err := ioutil.WriteFile(path+"/.env", contents, 0644)
 
 	if err != nil {
-		Logger.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	reloadSupervisor()
@@ -126,11 +142,11 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 				return
 			}
 			if (event.Op&fsnotify.Chmod == fsnotify.Chmod) || (event.Op&fsnotify.Write == fsnotify.Write) {
-				Logger.Info("配置更新", event)
+				logger.Info("配置更新", event)
 				updateAppEnvironment(path, namespace)
 			}
 		case err, ok := <-watcher.Errors:
-			Logger.Error("文件 watcher 过程中发生错误", err)
+			logger.Error("文件 watcher 过程中发生错误", err)
 			if !ok {
 				return
 			}
@@ -140,13 +156,13 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 
 func reloadSupervisor() {
 	if _, err := exec.LookPath("supervisorctl"); err != nil {
-		Logger.Info("当前环境中不存在 supervisor")
+		logger.Info("当前环境中不存在 supervisor")
 		return
 	}
 
 	c := exec.Command("supervisorctl", "reload", "all")
 
 	if err := c.Run(); err != nil {
-		Logger.Fatal("supervisor 重新加载失败")
+		logger.Fatal("supervisor 重新加载失败")
 	}
 }

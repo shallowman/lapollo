@@ -11,22 +11,21 @@ import (
 
 const defaultLocalhostIP = "127.0.0.1"
 
-type App struct {
+type app struct {
 	Path      string   `yaml:"path"`
 	AppId     string   `yaml:"appId"`
 	Namespace []string `yaml:"namespace"`
 }
 
-type Config struct {
+type config struct {
 	Cluster string `yaml:"cluster"`
 	Type    int    `yaml:"type"`
 	Host    string `yaml:"host"`
 	IP      string `yaml:"ip"`
 	LogPath string `yaml:"logPath"`
-	Apps    []App  `yaml:"apps"`
+	Apps    []app  `yaml:"apps"`
 }
 
-var Conf *Config
 
 func getHostIp() string {
 	netInterfaces, err := net.Interfaces()
@@ -69,17 +68,17 @@ func getHostIp() string {
 }
 
 func init() {
-	Conf = getConfigViaOsEnvironment()
-	if Conf == nil {
-		Conf = getConfigViaYaml()
+	conf = getConfigViaOsEnvironment()
+	if conf == nil {
+		conf = getConfigViaYaml()
 	}
 
-	if Conf == nil {
+	if conf == nil {
 		panic("Apollo-Client 启动失败，没有对应的配置文件")
 	}
 }
 
-func getConfigViaOsEnvironment() *Config {
+func getConfigViaOsEnvironment() *config {
 	cluster := os.Getenv("APOLLO_CLUSTER")
 	apolloHost := os.Getenv("APOLLO_HOST")
 	envPath := os.Getenv("APOLLO_ENV_PATH")
@@ -99,13 +98,13 @@ func getConfigViaOsEnvironment() *Config {
 
 	namespaces := strings.Split(namespace, ",")
 
-	return &Config{
+	return &config{
 		Cluster: cluster,
 		Type:    1,
 		Host:    apolloHost,
 		IP:      ip,
 		LogPath: logPath,
-		Apps: []App{{
+		Apps: []app{{
 			envPath,
 			appId,
 			namespaces,
@@ -113,7 +112,7 @@ func getConfigViaOsEnvironment() *Config {
 	}
 }
 
-func getConfigViaYaml() *Config {
+func getConfigViaYaml() *config {
 	var configYaml string
 
 	if homePath := os.Getenv("HOME"); homePath != "" {
@@ -123,24 +122,24 @@ func getConfigViaYaml() *Config {
 	if _, err := os.Stat(configYaml); err != nil {
 		currentDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 		if err != nil {
-			Logger.Errorf("Apollo-Client 获取路径错误, %s \n", err)
+			logger.Errorf("Apollo-Client 获取路径错误, %s \n", err)
 		}
 		configYaml = strings.TrimRight(currentDir, "/") + "/app.yaml"
 	}
 
 	if configYaml == "" {
-		Logger.Error("Apollo-Client 配置文件不存在")
+		logger.Error("Apollo-Client 配置文件不存在")
 		return nil
 	}
 
 	contents, err := ioutil.ReadFile(configYaml)
 
 	if err != nil {
-		Logger.Errorf("Apollo-Client 从 %s 读取配置时发生错误， %s \n", configYaml, err)
+		logger.Errorf("Apollo-Client 从 %s 读取配置时发生错误， %s \n", configYaml, err)
 	}
-	var config *Config
+	var config *config
 	if err := yaml.Unmarshal(contents, &config); err != nil {
-		Logger.Errorf("Apollo-Client 解析 yaml 配置文件 %s 发生错误 %s \n", configYaml, err)
+		logger.Errorf("Apollo-Client 解析 yaml 配置文件 %s 发生错误 %s \n", configYaml, err)
 		return nil
 	}
 	return config
