@@ -139,7 +139,7 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 }
 
 func reloadSupervisor() {
-	if _, err := exec.LookPath("supervisor"); err != nil {
+	if _, err := exec.LookPath("supervisorctl"); err != nil {
 		Logger.Info("当前环境中不存在 supervisor")
 		return
 	}
