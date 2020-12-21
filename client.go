@@ -156,7 +156,10 @@ func updateEnvUnderNamespace(path string, namespace string, configs map[string]s
 
 // 轮询更新
 func updateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
-	defer wg.Done()
+	defer func() {
+		fmt.Println("exit updateViaHttpPolling")
+		wg.Done()
+	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -171,7 +174,10 @@ func updateViaHttpPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.
 
 // 长轮询更新，热更新
 func updateEnvViaHttpLongPolling(config HttpReqConfig, wg *sync.WaitGroup, ctx context.Context) {
-	defer wg.Done()
+	defer func() {
+		fmt.Println("exit updateViaHttpPolling")
+		wg.Done()
+	}()
 	var notificationId int64
 	var releaseKey string
 	for {

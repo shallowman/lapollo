@@ -35,7 +35,7 @@ func newLogger() *log.Logger {
 			Hooks: nil,
 			Formatter: &log.TextFormatter{
 				DisableColors: true,
-				FullTimestamp: true,
+				TimestampFormat: time.RFC3339,
 			},
 			ReportCaller: false,
 			Level:        log.InfoLevel,

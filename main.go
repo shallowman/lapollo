@@ -41,36 +41,37 @@ func init() {
 }
 
 func main() {
-	logger.Info("apollo 客户端启动")
+	logger.Info("Apollo-Client Start Work")
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
-		logger.Error("添加文件 watcher 失败", err)
+		logger.Error("Apollo-Client 启动文件监听失败", err)
 	}
 
 	ctx, cancel = context.WithCancel(context.Background())
-	continuousUpdate(ctx, watcher)
+	keepUpdate(ctx, watcher)
 	go handleSignal()
 
 	wg.Wait()
 	defer watcher.Close()
-	logger.Info("apollo 客户端退出")
+	logger.Info("Apollo-Client Stop Work")
 }
 
-func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
+func keepUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 	for _, app := range conf.Apps {
-		go listenAppNamespaceConfig(watcher, filepath.Dir(app.Path), app.Namespace)
+		go listenAppNamespaceConfig(watcher, filepath.Dir(app.Path), app.Namespace, ctx)
 		for _, namespace := range app.Namespace {
-			err1 := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0644)
-			if err1 != nil {
-				panic(fmt.Errorf("写入文件失败 %v", err1))
+			if err := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0644); err != nil {
+				panic(fmt.Errorf("写入文件失败 %v", err))
 			}
-			err2 := watcher.Add(filepath.Dir(app.Path) + "/apollo.config." + namespace)
-			if err2 != nil {
-				logger.Fatal(err2)
+
+			if err := watcher.Add(filepath.Dir(app.Path) + "/apollo.config." + namespace); err != nil {
+				panic(fmt.Errorf("Apollo-Client 文件监听失败 %v", err))
 			}
+
 			wg.Add(1)
-			go func(path, appId, namespace string, ctx context.Context) {
+
+			func(path, appId, namespace string, ctx context.Context) {
 				switch conf.Type {
 				case POLLING:
 					updateViaHttpPolling(HttpReqConfig{
@@ -78,8 +79,6 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 						AppId:     appId,
 						Namespace: namespace,
 					}, &wg, ctx)
-
-					break
 				case HOT:
 					updateEnvViaHttpLongPolling(HttpReqConfig{
 						Path:          path,
@@ -88,13 +87,10 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 						ReleaseKey:    "",
 						Notifications: "",
 					}, &wg, ctx)
-					break
 				default:
 					logger.Error("配置文件 type 类型错误")
 					panic(fmt.Errorf("配置文件 type 类型错误 %v", conf.Type))
 				}
-				return
-
 			}(app.Path, app.AppId, namespace, ctx)
 		}
 	}
@@ -106,7 +102,7 @@ func handleSignal() {
 	for {
 		switch <-signals {
 		case syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT:
-			logger.Info("apollo 客户端正在停止")
+			logger.Info("Apollo-Client 正在停止运行")
 			cancel()
 		}
 	}
@@ -134,9 +130,14 @@ func updateAppEnvironment(path string, namespaces []string) {
 	reloadSupervisor()
 }
 
-func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace []string) {
+func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace []string, ctx context.Context) {
+	defer func() {
+		fmt.Println("exit listenAppNamespaceConfig")
+	}()
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return
@@ -160,9 +161,8 @@ func reloadSupervisor() {
 		return
 	}
 
-	c := exec.Command("supervisorctl", "reload", "all")
-
-	if err := c.Run(); err != nil {
-		logger.Fatal("supervisor 重新加载失败")
+	c := exec.Command("supervisorctl", "reload")
+		if err := c.Run(); err != nil {
+		logger.Errorf("supervisor 重新加载失败 %v", err)
 	}
 }
