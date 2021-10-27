@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/lapollo/client"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -18,6 +21,11 @@ var (
 	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
+	Version   string
+	Branch    string
+	Commit    string
+	BuildTime string
+	lowercase string
 )
 
 const (
@@ -26,6 +34,17 @@ const (
 )
 
 func main() {
+	versionFlag := flag.Bool("version", false, "print the version")
+	flag.Parse()
+
+	if *versionFlag {
+		log.Printf("Version: %s\n", Version)
+		log.Printf("Branch: %s\n", Branch)
+		log.Printf("Commit: %s\n", Commit)
+		log.Printf("BuildTime: %s\n", BuildTime)
+		log.Printf("lowercase: %s\n", lowercase)
+		os.Exit(0)
+	}
 	client.Logger.Info("apollo 客户端启动")
 	watcher, err := fsnotify.NewWatcher()
 
@@ -140,7 +159,7 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 }
 
 func reloadSupervisor() {
-	if _, err := exec.LookPath("supervisorctl"); err != nil {
+	if _, err := os.Stat("/var/run/supervisor.sock"); errors.Is(err, os.ErrNotExist) {
 		client.Logger.Info("当前环境中不存在 supervisor")
 		return
 	}
