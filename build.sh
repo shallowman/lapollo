@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 prog=lapollo
-version=1.0.0
+version=1.0.1
 lowercase=ok
 
 # 交叉编译

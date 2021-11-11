@@ -4,23 +4,24 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/lapollo/client"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"syscall"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/lapollo/client"
 )
 
 var (
-	wg     sync.WaitGroup
-	ctx    context.Context
-	cancel context.CancelFunc
+	wg        sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
 	Version   string
 	Branch    string
 	Commit    string
@@ -45,6 +46,7 @@ func main() {
 		log.Printf("lowercase: %s\n", lowercase)
 		os.Exit(0)
 	}
+
 	client.Logger.Info("apollo 客户端启动")
 	watcher, err := fsnotify.NewWatcher()
 
@@ -55,10 +57,14 @@ func main() {
 	ctx, cancel = context.WithCancel(context.Background())
 	continuousUpdate(ctx, watcher)
 	go handleSignal()
-
 	wg.Wait()
-	defer watcher.Close()
 	client.Logger.Info("apollo 客户端退出")
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			client.Logger.Error("Watch 关闭异常", err.Error())
+		}
+		stackTraceWhenPanic()
+	}()
 }
 
 func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
@@ -67,7 +73,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 		for _, namespace := range app.Namespace {
 			err1 := ioutil.WriteFile(filepath.Dir(app.Path)+"/apollo.config."+namespace, []byte{}, 0644)
 			if err1 != nil {
-				panic(fmt.Errorf("写入文件失败 %v", err1))
+				client.Logger.Errorf("写入文件失败 %v", err1)
 			}
 			err2 := watcher.Add(filepath.Dir(app.Path) + "/apollo.config." + namespace)
 			if err2 != nil {
@@ -95,7 +101,6 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 					break
 				default:
 					client.Logger.Error("配置文件 type 类型错误")
-					panic(fmt.Errorf("配置文件 type 类型错误 %v", client.Conf.Type))
 				}
 				return
 
@@ -163,12 +168,16 @@ func reloadSupervisor() {
 		client.Logger.Info("当前环境中不存在 supervisor")
 		return
 	}
-
 	c := exec.Command("supervisorctl", "reload")
-
 	if err := c.Run(); err != nil {
-		client.Logger.Fatal("supervisor 重新加载失败")
+		client.Logger.Fatal("supervisor reload failed.")
 	} else {
-		client.Logger.Fatal("supervisor 重新启动成功")
+		client.Logger.Info("supervisor reload success.")
+	}
+}
+
+func stackTraceWhenPanic() {
+	if e := recover(); e != nil {
+		client.Logger.Error("lapollo-client 异常退出. Call Stack:", string(debug.Stack()))
 	}
 }
