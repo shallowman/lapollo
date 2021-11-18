@@ -111,10 +111,10 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 
 func handleSignal() {
 	signals := make(chan os.Signal)
-	signal.Notify(signals, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGQUIT)
 	for {
 		switch <-signals {
-		case syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT:
+		case syscall.SIGTERM, syscall.SIGQUIT:
 			client.Logger.Error("apollo 客户端正在停止")
 			cancel()
 		}
@@ -150,7 +150,7 @@ func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace 
 			if !ok {
 				return
 			}
-			if (event.Op&fsnotify.Chmod == fsnotify.Chmod) || (event.Op&fsnotify.Write == fsnotify.Write) {
+			if event.Op&fsnotify.Write == fsnotify.Write {
 				client.Logger.Info("配置更新", event)
 				updateAppEnvironment(path, namespace)
 			}
@@ -170,7 +170,7 @@ func reloadSupervisor() {
 	}
 	c := exec.Command("supervisorctl", "reload")
 	if err := c.Run(); err != nil {
-		client.Logger.Fatal("supervisor reload failed.")
+		client.Logger.Fatal("supervisor reload failed.", err.Error())
 	} else {
 		client.Logger.Info("supervisor reload success.")
 	}
