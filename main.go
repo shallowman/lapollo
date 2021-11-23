@@ -77,7 +77,7 @@ func continuousUpdate(ctx context.Context, watcher *fsnotify.Watcher) {
 			}
 			err2 := watcher.Add(filepath.Dir(app.Path) + "/apollo.config." + namespace)
 			if err2 != nil {
-				client.Logger.Fatal(err2)
+				client.Logger.Fatal("apollo.config"+namespace+"监控失败", err2)
 			}
 			wg.Add(1)
 			go func(path, appId, namespace string, ctx context.Context) {
@@ -137,7 +137,7 @@ func updateAppEnvironment(path string, namespaces []string) {
 	err := ioutil.WriteFile(path+"/.env", contents, 0644)
 
 	if err != nil {
-		client.Logger.Fatal(err)
+		client.Logger.Fatal(".env 更新失败。", err)
 	}
 
 	reloadSupervisor()
