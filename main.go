@@ -173,7 +173,7 @@ func reloadSupervisor() {
 	}
 	c := exec.Command("supervisorctl", "reload")
 	if err := c.Run(); err != nil {
-		client.Logger.Fatal("supervisor reload failed.", err.Error())
+		client.Logger.Error("supervisor reload failed.", err.Error())
 	} else {
 		client.Logger.Info("supervisor reload success.")
 	}
