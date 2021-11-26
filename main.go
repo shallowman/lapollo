@@ -34,6 +34,8 @@ const (
 	HOT
 )
 
+var mutex = &sync.RWMutex{}
+
 func main() {
 	versionFlag := flag.Bool("version", false, "print the version")
 	flag.Parse()
@@ -139,8 +141,9 @@ func updateAppEnvironment(path string, namespaces []string) {
 	if err != nil {
 		client.Logger.Fatal(".env 更新失败。", err)
 	}
-
+	mutex.Lock()
 	reloadSupervisor()
+	mutex.Unlock()
 }
 
 func listenAppNamespaceConfig(watcher *fsnotify.Watcher, path string, namespace []string) {
